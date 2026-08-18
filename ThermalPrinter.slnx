@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/ThermalPrinter.Playground/ThermalPrinter.Playground.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/ThermalPrinter.Core/ThermalPrinter.Core.csproj" />
+    <Project Path="src/ThermalPrinter.TSC/ThermalPrinter.TSC.csproj" />
+    <Project Path="src/ThermalPrinter.Zebra/ThermalPrinter.Zebra.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ThermalPrinter.Tests/ThermalPrinter.Tests.csproj" />
+  </Folder>
+</Solution>
