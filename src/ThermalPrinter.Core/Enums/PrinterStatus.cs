@@ -4,11 +4,11 @@ namespace ThermalPrinter.Core.Enums;
 [Flags]
 public enum PrinterStatus
 {
-    Ready = 0,
-    PaperOut = 1 << 0,
+    Ready     = 0,
+    PaperOut  = 1 << 0,
     RibbonEnd = 1 << 1,
     CoverOpen = 1 << 2,
-    Pause = 1 << 3,
-    Error = 1 << 4,
-    Offline = 1 << 5
+    Pause     = 1 << 3,
+    Error     = 1 << 4,    
+    Offline   = 1 << 5
 }

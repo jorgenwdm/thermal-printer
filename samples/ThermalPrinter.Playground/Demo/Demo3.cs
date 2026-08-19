@@ -13,7 +13,6 @@ public static class Demo3
         int printerPort = 9100;
         bool isBidirectional = true;
 
-        // Initialize printer instance
         using var transport = new NetworkTransport(printerIP, printerPort, isBidirectional);
         var printer = new TscPrinter(transport);
 
@@ -25,10 +24,10 @@ public static class Demo3
             await printer.ConnectAsync();
             Console.WriteLine("--> TCP Connection Established with network printer.");
 
-            Console.WriteLine("\n[2/2] Attempting file reading...");
+            Console.WriteLine("\n[2/2] Attempting file reading (15 seconds timeout)...");
 
-            // We define a cancellation token to avoid hanging the ReadAsync if the print server swallows the command
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            // Explicit 15-second execution budget for readback
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
             List<string> files = await printer.GetFilesAsync(cts.Token);
 
@@ -43,7 +42,7 @@ public static class Demo3
         }        
         catch (OperationCanceledException)
         {
-            Console.WriteLine("[ERROR]: File retrieval timed out.");
+            Console.WriteLine("[ERROR]: File retrieval timed out after 15 seconds.");
         }
         catch (Exception ex)
         {

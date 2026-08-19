@@ -47,13 +47,13 @@ public static class Demo1
                 "SET PEEL OFF\r\n" +
                 "REFERENCE 0,0\r\n" +
                 "TEXT 40, 30, \"ROMAN.TTF\", 0, 10, 10, 1, \"TEST PRINT DIRECT\"\r\n" +
-                "TEXT 800, 30, \"ROMAN.TTF\", 0, 10, 10, 3, \"ΔΟΚΙΜΑΣΤΙΚΗ ΕΚΤΥΠΩΣΗ\"\r\n" +
+                "TEXT 800, 30, \"ROMAN.TTF\", 0, 10, 10, 3, \"ΔΟΚΙΜΑΣΤΙΚΗ ΕΚΤΥΠΩΣΗ\"\r\n" +                
                 "PRINT 1,1\r\n";
 
             Encoding GreekEncoding = Encoding.GetEncoding(1253); // Greek (Windows) code page
             byte[] rawData = GreekEncoding.GetBytes(tsplCommands);
 
-            await printer.PrintRawAsync(rawData);
+            await printer.PrintAsync(rawData);
 
             Console.WriteLine("Print job sent successfully.");
         }
