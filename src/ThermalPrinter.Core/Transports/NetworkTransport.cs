@@ -1,8 +1,12 @@
 // src/ThermalPrinter.Core/Transports/NetworkTransport.cs
 using System.Net.Sockets;
+using ThermalPrinter.Core.Exceptions;
 
 namespace ThermalPrinter.Core.Transports;
 
+/// <summary>
+/// Class for communication with a thermal printer (or print server attached to a thermal printer)
+/// </summary>
 public class NetworkTransport : ITransport
 {
     private readonly string _ipAddress;
@@ -10,14 +14,11 @@ public class NetworkTransport : ITransport
     private TcpClient? _client;
     private NetworkStream? _stream;
 
-
     /// <inheritdoc />
     public bool IsConnected => _client?.Connected ?? false;
 
-
     /// <inheritdoc />    
     public bool SupportsBidirectional { get; set; } = true;
-
 
     public NetworkTransport(string ipAddress, int port = 9100, bool supportsBidirectional = true)
     {
@@ -27,6 +28,12 @@ public class NetworkTransport : ITransport
         this.SupportsBidirectional = supportsBidirectional;
     }
 
+    public void Dispose()
+    {
+        _stream?.Dispose();
+        _client?.Dispose();
+    }
+
 
     /// <inheritdoc />    
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
@@ -34,6 +41,16 @@ public class NetworkTransport : ITransport
         _client = new TcpClient();
         await _client.ConnectAsync(_ipAddress, _port, cancellationToken);
         _stream = _client.GetStream();
+    }
+
+
+    /// <inheritdoc />    
+    public Task DisconnectAsync()
+    {
+        _stream?.Dispose();
+        _client?.Close();
+        _client?.Dispose();
+        return Task.CompletedTask;
     }
 
 
@@ -50,9 +67,10 @@ public class NetworkTransport : ITransport
     /// <inheritdoc />    
     public async Task<byte[]> ReadAsync(int bufferSize, CancellationToken cancellationToken = default)
     {
+        // Important check: This method will only work with bidirectional communication
         if (!SupportsBidirectional)
         {
-            throw new NotSupportedException("This transport configuration does not support bidirectional communication.");
+            throw new TransportUnidirectionalException(nameof(NetworkTransport));
         }
 
         if (_stream == null || !IsConnected)
@@ -64,22 +82,5 @@ public class NetworkTransport : ITransport
         byte[] result = new byte[bytesRead];
         Array.Copy(buffer, result, bytesRead);
         return result;
-    }
-
-
-    /// <inheritdoc />    
-    public Task DisconnectAsync()
-    {
-        _stream?.Dispose();
-        _client?.Close();
-        _client?.Dispose();
-        return Task.CompletedTask;
-    }
-
-
-    public void Dispose()
-    {
-        _stream?.Dispose();
-        _client?.Dispose();
     }
 }

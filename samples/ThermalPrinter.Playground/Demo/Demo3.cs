@@ -5,9 +5,12 @@ using ThermalPrinter.TSC;
 
 namespace ThermalPrinter.Playground.Demo;
 
+/// <summary>
+/// Demonstration class for reading stored files from a network thermal printer
+/// </summary>
 public static class Demo3
 {
-    public static async Task TestPrinterGetFilesAsync()
+    public static async Task Execute()
     {
         string printerIP = "192.168.0.157";
         int printerPort = 9100;
@@ -16,7 +19,7 @@ public static class Demo3
         using var transport = new NetworkTransport(printerIP, printerPort, isBidirectional);
         var printer = new TscPrinter(transport);
 
-        Console.WriteLine("\n=== Demo 3: Retrieve stored files from network printer ===");
+        Console.WriteLine("\n=== Demo 3: Retrieve stored files from network thermal printer ===");
 
         try
         {
@@ -51,7 +54,7 @@ public static class Demo3
         finally
         {
             await printer.DisconnectAsync();            
-            Console.WriteLine("Disconnected.");
+            Console.WriteLine("\nDisconnected.");
         }
     }
 }

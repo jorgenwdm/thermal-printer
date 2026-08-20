@@ -1,40 +1,91 @@
-﻿// src/ThermalPrinter.TSC/TscPrinter.cs
-using System.Text;
+﻿using System.Text;
 using ThermalPrinter.Core.Enums;
 using ThermalPrinter.Core.Interfaces;
 using ThermalPrinter.Core.Transports;
 
 namespace ThermalPrinter.TSC;
 
-public class TscPrinter : IThermalPrinter
+public class TscPrinter : IBidirectionalThermalPrinter
 {
     private readonly ITransport _transport;
-
+    
     public TscPrinter(ITransport transport)
     {
         _transport = transport;
+       
     }
 
-    /// <inheritdoc />
-    public Task ConnectAsync(CancellationToken cancellationToken = default)
-        => _transport.ConnectAsync(cancellationToken);
+#region Command Methods
 
     /// <inheritdoc />
-    public Task DisconnectAsync()
-        => _transport.DisconnectAsync();
+    public Task ConnectAsync(CancellationToken ct = default) => _transport.ConnectAsync(ct);
+
 
     /// <inheritdoc />
-    public async Task<PrinterStatus> GetStatusAsync(CancellationToken cancellationToken = default)
+    public Task DisconnectAsync() => _transport.DisconnectAsync();
+
+    /// <inheritdoc />
+    public Task PrintAsync(byte[] rawData, CancellationToken ct = default)
+        => _transport.SendAsync(rawData, ct);
+
+
+    /// <inheritdoc />
+    public Task DownloadFontAsync(string fontName, byte[] fontData, MemoryTarget target = MemoryTarget.Flash, CancellationToken ct = default)
     {
-        using var cts = cancellationToken == default
+        return DownloadFileAsync(fontName, fontData, target, ct);
+    }
+
+
+    /// <inheritdoc />
+    public Task DownloadBitmapAsync(string imageName, byte[] bitmapData, MemoryTarget target = MemoryTarget.Flash, CancellationToken ct = default)
+    {
+        return DownloadFileAsync(imageName, bitmapData, target, ct);
+    }
+
+
+    // Helper method for TSPL DOWNLOAD [n,] "FILENAME",DATA SIZE,DATA CONTENT...    
+    private Task DownloadFileAsync(string fileName, byte[] fileData, MemoryTarget target,CancellationToken ct)
+    {
+        string memoryPrefix = target switch
+        {
+            MemoryTarget.Flash => "F,",
+            MemoryTarget.Expansion => "E,",
+            _ => string.Empty // DRAM
+        };
+
+        // Command Syntax: DOWNLOAD [n,] "FILENAME",DATA SIZE,
+        string header = $"DOWNLOAD {memoryPrefix}\"{fileName}\",{fileData.Length},";
+        byte[] headerBytes = Encoding.ASCII.GetBytes(header);
+
+        // Terminating CRLF after binary payload
+        byte[] footerBytes = Encoding.ASCII.GetBytes("\r\n");
+
+        byte[] payload = new byte[headerBytes.Length + fileData.Length + footerBytes.Length];
+
+        Buffer.BlockCopy(headerBytes, 0, payload, 0, headerBytes.Length);
+        Buffer.BlockCopy(fileData, 0, payload, headerBytes.Length, fileData.Length);
+        Buffer.BlockCopy(footerBytes, 0, payload, headerBytes.Length + fileData.Length, footerBytes.Length);
+
+        return _transport.SendAsync(payload, ct);
+    }
+
+#endregion
+
+
+#region Query Methods
+
+    /// <inheritdoc />    
+    public async Task<PrinterStatus> GetStatusAsync(CancellationToken ct = default)
+    {
+        using var cancellationToken = ct == default
             ? new CancellationTokenSource(TimeSpan.FromSeconds(15))
-            : CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            : CancellationTokenSource.CreateLinkedTokenSource(ct);
 
         // TSPL Status Command: <ESC>!?
         byte[] command = [(byte)0x1B, (byte)'!', (byte)'?'];
-        await _transport.SendAsync(command, cts.Token);
+        await _transport.SendAsync(command, cancellationToken.Token);
 
-        byte[] response = await _transport.ReadAsync(1, cts.Token);
+        byte[] response = await _transport.ReadAsync(1, cancellationToken.Token);
         if (response.Length == 0) return PrinterStatus.Offline;
 
         byte statusByte = response[0];
@@ -54,20 +105,21 @@ public class TscPrinter : IThermalPrinter
         return status;
     }
 
-    /// <inheritdoc />
-    public async Task<List<string>> GetFilesAsync(CancellationToken cancellationToken = default)
+
+    /// <inheritdoc />    
+    public async Task<List<string>> GetFilesAsync(CancellationToken ct = default)
     {
         var result = new List<string>();
 
         // TSPL File Listing Command: ~!F
         byte[] command = Encoding.ASCII.GetBytes("~!F\r\n");
-        await _transport.SendAsync(command, cancellationToken);
+        await _transport.SendAsync(command, ct);
 
         using var ms = new MemoryStream();
 
-        using var overallCts = cancellationToken == default
+        using var overallCts = ct == default
             ? new CancellationTokenSource(TimeSpan.FromSeconds(15))
-            : CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            : CancellationTokenSource.CreateLinkedTokenSource(ct);
 
         try
         {
@@ -114,59 +166,6 @@ public class TscPrinter : IThermalPrinter
         return result;
     }
 
-    /// <inheritdoc />
-    public Task PrintAsync(byte[] rawData, CancellationToken cancellationToken = default)
-        => _transport.SendAsync(rawData, cancellationToken);
-
-
-    /// <inheritdoc />
-    public Task DownloadFontAsync(
-        string fontName,
-        byte[] fontData,
-        MemoryTarget target = MemoryTarget.Flash,
-        CancellationToken cancellationToken = default)
-    {
-        return DownloadFileAsync(fontName, fontData, target, cancellationToken);
-    }
-
-    /// <inheritdoc />
-    public Task DownloadBitmapAsync(
-        string imageName,
-        byte[] bitmapData,
-        MemoryTarget target = MemoryTarget.Flash,
-        CancellationToken cancellationToken = default)
-    {
-        return DownloadFileAsync(imageName, bitmapData, target, cancellationToken);
-    }
-
-    // Helper method for TSPL DOWNLOAD [n,] "FILENAME",DATA SIZE,DATA CONTENT...    
-    private Task DownloadFileAsync(
-        string fileName,
-        byte[] fileData,
-        MemoryTarget target,
-        CancellationToken cancellationToken)
-    {
-        string memoryPrefix = target switch
-        {
-            MemoryTarget.Flash => "F,",
-            MemoryTarget.Expansion => "E,",
-            _ => string.Empty // DRAM
-        };
-
-        // Command Syntax: DOWNLOAD [n,] "FILENAME",DATA SIZE,
-        string header = $"DOWNLOAD {memoryPrefix}\"{fileName}\",{fileData.Length},";
-        byte[] headerBytes = Encoding.ASCII.GetBytes(header);
-
-        // Terminating CRLF after binary payload
-        byte[] footerBytes = Encoding.ASCII.GetBytes("\r\n");
-
-        byte[] payload = new byte[headerBytes.Length + fileData.Length + footerBytes.Length];
-
-        Buffer.BlockCopy(headerBytes, 0, payload, 0, headerBytes.Length);
-        Buffer.BlockCopy(fileData, 0, payload, headerBytes.Length, fileData.Length);
-        Buffer.BlockCopy(footerBytes, 0, payload, headerBytes.Length + fileData.Length, footerBytes.Length);
-
-        return _transport.SendAsync(payload, cancellationToken);
-    }
+#endregion
 
 }

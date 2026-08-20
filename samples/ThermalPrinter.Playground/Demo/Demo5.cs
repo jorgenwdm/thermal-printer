@@ -7,29 +7,28 @@ using ThermalPrinter.TSC;
 namespace ThermalPrinter.Playground.Demo;
 
 /// <summary>
-/// Demonstration class for reading printer status and sending a printout command to a thermal printer over network
+/// Demonstration class for reading printer status and sending a printout command to a thermal printer over USB
 /// </summary>
-public static class Demo1
+public static class Demo5
 {
     public static async Task Execute()
     {        
-        string printerIP = "192.168.0.157";
-        int printerPort = 9100;
+        int printerVendorId = 0x1103;
+        int printerProductId = 0x0001;
         bool isBidirectional = true;
 
         // Initialize communication transport
-        using var transport = new NetworkTransport(printerIP, printerPort, isBidirectional);
+        using var transport = new UsbTransport(printerVendorId, printerProductId, isBidirectional);
         
         // Intialize printer instance
         var printer = new TscPrinter(transport);        
 
         
-        Console.WriteLine("\n=== Demo 1: Sending printer commands to network printer ===");        
-
+        Console.WriteLine("\n=== Demo 1: Sending printer commands to USB printer ===");        
 
         try
         {
-            Console.WriteLine($"[1/3] Connecting to printer natively at {printerIP}:{printerPort}...");            
+            Console.WriteLine($"[1/3] Connecting to usb printer {printerVendorId}:{printerProductId}...");            
             await printer.ConnectAsync(); // connect to printer
             Console.WriteLine("Connected!");
 

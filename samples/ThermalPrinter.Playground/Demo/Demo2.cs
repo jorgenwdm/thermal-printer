@@ -1,43 +1,59 @@
 using System.Text;
 using ThermalPrinter.Core.Enums;
+using ThermalPrinter.Core.Exceptions;
 using ThermalPrinter.Core.Transports;
 using ThermalPrinter.TSC;
 
 namespace ThermalPrinter.Playground.Demo;
 
+/// <summary>
+/// Demonstration class for reading printer status from an external print server attached to a thermal printer
+/// Network connection to a print server is not biderectional so a status reading from the print server is not possible and an exception must be thrown
+/// </summary>
 public static class Demo2
 {
-    public static async Task TestPrintServerStatusAsync()
+    public static async Task Execute()
     {
         string printServerIP = "192.168.0.49";
         int printerPort = 9100;
-        bool isBidirectional = false;  // false because most print servers do not support bidirectional communication
+        
+        // this print server does not support bidirectional communication)
+        // We set false because we can not read something back from the printer.
+        // If you set true, an OperationCanceledException is thrown after 15 seconds since the print server can not send anything back
+        bool isBidirectional = false;          
 
-        // Initialize printer instance
+        // Initialize communication transport
         using var transport = new NetworkTransport(printServerIP, printerPort, isBidirectional);
+        
+        // Intialize printer instance
         var printer = new TscPrinter(transport);
 
-        Console.WriteLine("\n=== Demo 2: External USB Print Server Status ===");
+
+        Console.WriteLine("\n=== Demo 2: External Print Server Status ===\n");
+
 
         try
         {
             Console.WriteLine($"[1/2] Connecting to Print Server at {printServerIP}:{printerPort}...");
-            await printer.ConnectAsync();
+            await printer.ConnectAsync();   // connect to print server            
             Console.WriteLine("--> TCP Connection Established with Print Server.");
-
             
+
             Console.WriteLine("\n[2/2] Attempting Status Readback via External Print Server...");
-
-            // We define a short Cancellation Token to avoid hanging the ReadAsync if the print server swallows the status command and never responds.
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-
-            PrinterStatus status = await printer.GetStatusAsync(cts.Token);
-
+            PrinterStatus status = await printer.GetStatusAsync();  // read printer status (an exception must be thrown since the print server is not bidirectional)
             Console.WriteLine($"[RESULT] Status Received: {status}");
+
         }
-        catch (NotSupportedException)
+        catch (TransportUnidirectionalException ex)
         {
-            Console.WriteLine("[EXPECTED BEHAVIOR] Read Timeout: The External Print Server does not support status response back over Network.");
+            // When isBidirectional = false a TransportUnidirectionalException is thrown
+            Console.WriteLine($"[EXPTECTED ERROR]: {ex.Message}");  
+        }
+        catch (OperationCanceledException ex)
+        {
+            // if you set isBidirectional = true, an OperationCanceledException is thrown after 15 seconds
+            // because the print server does not really support bidirectional communication
+            Console.WriteLine($"[TIMEOUT ERROR]: {ex.Message}");   
         }
         catch (Exception ex)
         {
@@ -45,8 +61,8 @@ public static class Demo2
         }
         finally
         {
-            await printer.DisconnectAsync();            
-            Console.WriteLine("Disconnected.");
+            await printer.DisconnectAsync();    // disconnect
+            Console.WriteLine("\nDisconnected.");
         }
     }
 }

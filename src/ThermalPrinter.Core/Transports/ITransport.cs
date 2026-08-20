@@ -2,6 +2,9 @@
 
 namespace ThermalPrinter.Core.Transports;
 
+/// <summary>
+/// Interface for communication with a thermal printer (or print server attached to a thermal printer)
+/// </summary>
 public interface ITransport : IDisposable
 {    
     /// <summary>
